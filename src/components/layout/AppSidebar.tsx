@@ -40,7 +40,7 @@ export function AppSidebar() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <Sidebar className={state === "collapsed" ? "w-16" : "w-64"} collapsible="icon">
+    <Sidebar className={state === "collapsed" ? "w-48" : "w-64"} collapsible="icon">
       <SidebarHeader className="border-b border-border">
         <div className="flex items-center gap-2 px-3 py-2">
           <div className="flex h-8 w-8 items-center justify-center rounded bg-primary">
@@ -74,7 +74,7 @@ export function AppSidebar() {
                       }
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {state !== "collapsed" && <span className="text-sm">{item.title}</span>}
+                      <span className="text-sm">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

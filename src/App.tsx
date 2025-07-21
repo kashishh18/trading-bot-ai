@@ -16,7 +16,14 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Predictions />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/predictions" element={<Predictions />} />
+          <Route path="/opportunities" element={<Predictions />} />
+          <Route path="/portfolio" element={<Predictions />} />
+          <Route path="/history" element={<Predictions />} />
+          <Route path="/analytics" element={<Predictions />} />
+          <Route path="/scanner" element={<Predictions />} />
+          <Route path="/settings" element={<Predictions />} />
+          <Route path="*" element={<Predictions />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

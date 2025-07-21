@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_predictions: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          expires_at: string
+          id: string
+          model_version: string
+          predicted_price: number
+          prediction_date: string
+          signal_type: Database["public"]["Enums"]["signal_type"]
+          symbol: string
+          technical_indicators: Json | null
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          model_version: string
+          predicted_price: number
+          prediction_date: string
+          signal_type: Database["public"]["Enums"]["signal_type"]
+          symbol: string
+          technical_indicators?: Json | null
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          model_version?: string
+          predicted_price?: number
+          prediction_date?: string
+          signal_type?: Database["public"]["Enums"]["signal_type"]
+          symbol?: string
+          technical_indicators?: Json | null
+        }
+        Relationships: []
+      }
       matcha_products: {
         Row: {
           created_at: string
@@ -62,6 +101,93 @@ export type Database = {
           retailer?: string
           ships_to_us?: boolean | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      portfolio_positions: {
+        Row: {
+          average_buy_price: number
+          closed_at: string | null
+          created_at: string
+          current_price: number | null
+          id: string
+          position_status: Database["public"]["Enums"]["position_status"]
+          shares_owned: number
+          stop_loss_price: number | null
+          symbol: string
+          take_profit_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          average_buy_price: number
+          closed_at?: string | null
+          created_at?: string
+          current_price?: number | null
+          id?: string
+          position_status?: Database["public"]["Enums"]["position_status"]
+          shares_owned: number
+          stop_loss_price?: number | null
+          symbol: string
+          take_profit_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          average_buy_price?: number
+          closed_at?: string | null
+          created_at?: string
+          current_price?: number | null
+          id?: string
+          position_status?: Database["public"]["Enums"]["position_status"]
+          shares_owned?: number
+          stop_loss_price?: number | null
+          symbol?: string
+          take_profit_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      portfolio_summary: {
+        Row: {
+          cash_balance: number
+          daily_change: number
+          daily_change_percent: number
+          id: string
+          invested_amount: number
+          max_position_size: number
+          risk_tolerance: number
+          total_profit_loss: number
+          total_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cash_balance?: number
+          daily_change?: number
+          daily_change_percent?: number
+          id?: string
+          invested_amount?: number
+          max_position_size?: number
+          risk_tolerance?: number
+          total_profit_loss?: number
+          total_value?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cash_balance?: number
+          daily_change?: number
+          daily_change_percent?: number
+          id?: string
+          invested_amount?: number
+          max_position_size?: number
+          risk_tolerance?: number
+          total_profit_loss?: number
+          total_value?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -154,6 +280,134 @@ export type Database = {
           },
         ]
       }
+      stock_prices: {
+        Row: {
+          adjusted_close: number | null
+          close_price: number
+          created_at: string
+          date: string
+          high_price: number
+          id: string
+          low_price: number
+          open_price: number
+          symbol: string
+          volume: number
+        }
+        Insert: {
+          adjusted_close?: number | null
+          close_price: number
+          created_at?: string
+          date: string
+          high_price: number
+          id?: string
+          low_price: number
+          open_price: number
+          symbol: string
+          volume: number
+        }
+        Update: {
+          adjusted_close?: number | null
+          close_price?: number
+          created_at?: string
+          date?: string
+          high_price?: number
+          id?: string
+          low_price?: number
+          open_price?: number
+          symbol?: string
+          volume?: number
+        }
+        Relationships: []
+      }
+      trading_history: {
+        Row: {
+          commission: number | null
+          executed_at: string
+          id: string
+          price: number
+          profit_loss: number | null
+          shares: number
+          signal_id: string | null
+          symbol: string
+          total_amount: number
+          trade_type: Database["public"]["Enums"]["trade_type"]
+          user_id: string
+        }
+        Insert: {
+          commission?: number | null
+          executed_at?: string
+          id?: string
+          price: number
+          profit_loss?: number | null
+          shares: number
+          signal_id?: string | null
+          symbol: string
+          total_amount: number
+          trade_type: Database["public"]["Enums"]["trade_type"]
+          user_id: string
+        }
+        Update: {
+          commission?: number | null
+          executed_at?: string
+          id?: string
+          price?: number
+          profit_loss?: number | null
+          shares?: number
+          signal_id?: string | null
+          symbol?: string
+          total_amount?: number
+          trade_type?: Database["public"]["Enums"]["trade_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trading_history_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "trading_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trading_signals: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          expires_at: string
+          id: string
+          is_executed: boolean
+          reasoning: string | null
+          risk_score: number
+          signal_type: Database["public"]["Enums"]["signal_type"]
+          symbol: string
+          target_price: number
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_executed?: boolean
+          reasoning?: string | null
+          risk_score: number
+          signal_type: Database["public"]["Enums"]["signal_type"]
+          symbol: string
+          target_price: number
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_executed?: boolean
+          reasoning?: string | null
+          risk_score?: number
+          signal_type?: Database["public"]["Enums"]["signal_type"]
+          symbol?: string
+          target_price?: number
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           created_at: string
@@ -193,6 +447,27 @@ export type Database = {
         }
         Relationships: []
       }
+      watchlist: {
+        Row: {
+          added_at: string
+          id: string
+          symbol: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          symbol: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -201,7 +476,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      position_status: "active" | "closed" | "pending"
+      signal_type: "buy" | "sell" | "hold"
+      trade_type: "market" | "limit" | "stop_loss" | "take_profit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -328,6 +605,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      position_status: ["active", "closed", "pending"],
+      signal_type: ["buy", "sell", "hold"],
+      trade_type: ["market", "limit", "stop_loss", "take_profit"],
+    },
   },
 } as const

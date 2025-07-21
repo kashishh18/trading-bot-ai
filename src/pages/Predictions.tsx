@@ -113,7 +113,8 @@ export default function Predictions() {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-6 overflow-auto">
+    <div className="min-h-screen bg-background">
+      <div className="flex-1 space-y-6 p-6 overflow-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">AI Predictions</h1>
@@ -256,6 +257,7 @@ export default function Predictions() {
             </Card>
           );
         })}
+      </div>
       </div>
     </div>
   );

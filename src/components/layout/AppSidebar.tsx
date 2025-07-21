@@ -35,23 +35,20 @@ const navigationItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { state } = useSidebar();
 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <Sidebar className={state === "collapsed" ? "w-48" : "w-64"} collapsible="icon">
+    <Sidebar className="w-64" collapsible="none">
       <SidebarHeader className="border-b border-border">
         <div className="flex items-center gap-2 px-3 py-2">
           <div className="flex h-8 w-8 items-center justify-center rounded bg-primary">
             <TrendingUp className="h-5 w-5 text-primary-foreground" />
           </div>
-          {state !== "collapsed" && (
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold">TradingBot AI</span>
-              <span className="text-xs text-muted-foreground">Pro Terminal</span>
-            </div>
-          )}
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold">TradingBot AI</span>
+            <span className="text-xs text-muted-foreground">Pro Terminal</span>
+          </div>
         </div>
       </SidebarHeader>
 

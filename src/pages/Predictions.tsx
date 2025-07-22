@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Activity, Clock, Brain } from "lucide-react";
 import AIAnalysisModal from "@/components/analysis/AIAnalysisModal";
+import MarketStatusBar from "@/components/market/MarketStatusBar";
 
 interface Prediction {
   id: string;
@@ -221,6 +222,9 @@ export default function Predictions() {
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Market Status Bar */}
+        <MarketStatusBar />
+        
         <div>
           <h1 className="text-4xl font-bold tracking-tight">AI Stock Predictions</h1>
           <p className="text-muted-foreground mt-2 text-lg">

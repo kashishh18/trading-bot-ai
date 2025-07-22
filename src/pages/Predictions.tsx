@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Activity, Clock } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Clock, Brain } from "lucide-react";
+import AIAnalysisModal from "@/components/analysis/AIAnalysisModal";
 
 interface Prediction {
   id: string;
@@ -30,6 +31,8 @@ export default function Predictions() {
   const [currentQuotes, setCurrentQuotes] = useState<{[key: string]: CurrentQuote}>({});
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
   useEffect(() => {
     initializePage();
@@ -205,6 +208,16 @@ export default function Predictions() {
     }
   };
 
+  const handlePredictionClick = (prediction: Prediction) => {
+    setSelectedPrediction(prediction);
+    setShowAnalysisModal(true);
+  };
+
+  const handleCloseAnalysis = () => {
+    setShowAnalysisModal(false);
+    setSelectedPrediction(null);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -291,7 +304,11 @@ export default function Predictions() {
               const direction = getSignalDirection(prediction.signal_type);
               
               return (
-                <Card key={prediction.id} className="relative overflow-hidden">
+                <Card 
+                  key={prediction.id} 
+                  className="relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => handlePredictionClick(prediction)}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -374,10 +391,16 @@ export default function Predictions() {
                       </div>
                     )}
 
-                    {/* Timestamp */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      <span>Updated {formatTimeAgo(prediction.created_at)}</span>
+                    {/* Timestamp and Analysis Button */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>Updated {formatTimeAgo(prediction.created_at)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-primary">
+                        <Brain className="w-3 h-3" />
+                        <span>View AI Analysis</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -385,6 +408,14 @@ export default function Predictions() {
             })}
           </div>
         )}
+
+        {/* AI Analysis Modal */}
+        <AIAnalysisModal
+          prediction={selectedPrediction}
+          currentPrice={selectedPrediction ? (currentQuotes[selectedPrediction.symbol]?.price || 0) : 0}
+          isOpen={showAnalysisModal}
+          onClose={handleCloseAnalysis}
+        />
       </div>
     </div>
   );

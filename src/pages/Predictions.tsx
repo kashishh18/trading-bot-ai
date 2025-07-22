@@ -32,8 +32,64 @@ export default function Predictions() {
   const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
-    fetchPredictions();
+    initializePage();
   }, []);
+
+  const initializePage = async () => {
+    setLoading(true);
+    
+    // First try to fetch existing predictions
+    const { data: existingPredictions } = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (!existingPredictions || existingPredictions.length === 0) {
+      // If no predictions exist, generate some for trending stocks
+      await generateTrendingStocksPredictions();
+    } else {
+      setPredictions(existingPredictions);
+      // Fetch current quotes for existing predictions
+      const symbols = [...new Set(existingPredictions.map(p => p.symbol))];
+      await fetchCurrentQuotes(symbols);
+    }
+    
+    setLoading(false);
+  };
+
+  const generateTrendingStocksPredictions = async () => {
+    // Daily rotating trending stocks
+    const allTrendingStocks = [
+      ['AAPL', 'NVDA', 'TSLA'],
+      ['MSFT', 'GOOGL', 'META'], 
+      ['AMZN', 'NFLX', 'AMD'],
+      ['BABA', 'TSM', 'ASML'],
+      ['JPM', 'V', 'MA']
+    ];
+    
+    // Rotate based on day of year
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+    const todaysTrending = allTrendingStocks[dayOfYear % allTrendingStocks.length];
+    
+    console.log('Generating predictions for trending stocks:', todaysTrending);
+    
+    for (const symbol of todaysTrending) {
+      try {
+        await supabase.functions.invoke('ai-trading-analysis', {
+          body: {
+            action: 'analyze_stock',
+            symbol
+          }
+        });
+      } catch (error) {
+        console.error(`Error analyzing trending stock ${symbol}:`, error);
+      }
+    }
+    
+    // Fetch the newly created predictions
+    await fetchPredictions();
+  };
 
   const fetchPredictions = async () => {
     try {
@@ -93,21 +149,15 @@ export default function Predictions() {
 
       if (error) {
         console.error('Analysis error:', error);
-        // Show user-friendly error message
-        alert(`Failed to analyze ${searchSymbol.toUpperCase()}: ${error.message || 'Unknown error'}`);
         return;
       }
       
-      // Refresh predictions after analysis
+      // Refresh predictions after analysis and clear search
       await fetchPredictions();
       setSearchSymbol("");
       
-      // Show success message
-      alert(`Analysis completed for ${searchSymbol.toUpperCase()}! Check the predictions below.`);
-      
     } catch (error) {
       console.error('Error analyzing stock:', error);
-      alert(`Failed to analyze stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setAnalyzing(false);
     }
@@ -196,7 +246,17 @@ export default function Predictions() {
         </Card>
 
         {/* Predictions Grid */}
-        {predictions.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">Loading Trending Stocks</h3>
+              <p className="text-muted-foreground">
+                Generating AI predictions for today's trending stocks...
+              </p>
+            </CardContent>
+          </Card>
+        ) : predictions.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />

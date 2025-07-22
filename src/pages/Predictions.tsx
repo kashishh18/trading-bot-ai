@@ -91,16 +91,48 @@ export default function Predictions() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Analysis error:', error);
+        // Show user-friendly error message
+        alert(`Failed to analyze ${searchSymbol.toUpperCase()}: ${error.message || 'Unknown error'}`);
+        return;
+      }
       
       // Refresh predictions after analysis
       await fetchPredictions();
       setSearchSymbol("");
+      
+      // Show success message
+      alert(`Analysis completed for ${searchSymbol.toUpperCase()}! Check the predictions below.`);
+      
     } catch (error) {
       console.error('Error analyzing stock:', error);
+      alert(`Failed to analyze stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  // Add some sample data if no predictions exist
+  const addSamplePredictions = async () => {
+    const sampleSymbols = ['AAPL', 'MSFT', 'GOOGL'];
+    setLoading(true);
+    
+    for (const symbol of sampleSymbols) {
+      try {
+        await supabase.functions.invoke('ai-trading-analysis', {
+          body: {
+            action: 'analyze_stock',
+            symbol
+          }
+        });
+      } catch (error) {
+        console.error(`Error analyzing ${symbol}:`, error);
+      }
+    }
+    
+    await fetchPredictions();
+    setLoading(false);
   };
 
   const getSignalDirection = (signalType: string) => {
@@ -169,9 +201,23 @@ export default function Predictions() {
             <CardContent className="p-12 text-center">
               <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-xl font-semibold mb-2">No Predictions Yet</h3>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-4">
                 Enter a stock symbol above to generate AI-powered predictions
               </p>
+              <Button 
+                onClick={addSamplePredictions}
+                disabled={loading}
+                variant="outline"
+              >
+                {loading ? (
+                  <>
+                    <Activity className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Sample Predictions...
+                  </>
+                ) : (
+                  'Generate Sample Predictions (AAPL, MSFT, GOOGL)'
+                )}
+              </Button>
             </CardContent>
           </Card>
         ) : (

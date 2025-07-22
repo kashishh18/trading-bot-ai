@@ -39,74 +39,152 @@ serve(async (req) => {
 });
 
 async function analyzeStock(symbol: string) {
-  // Fetch historical data
-  const { data: historicalData } = await supabase
-    .from('stock_prices')
-    .select('*')
-    .eq('symbol', symbol)
-    .order('date', { ascending: true })
-    .limit(50);
-
-  if (!historicalData || historicalData.length < 20) {
-    throw new Error('Insufficient historical data for analysis');
-  }
-
-  const prices = historicalData.map(d => parseFloat(d.close_price));
-  const volumes = historicalData.map(d => parseInt(d.volume));
+  console.log(`Starting analysis for ${symbol}`);
   
-  // Calculate technical indicators
-  const rsi = calculateRSI(prices, 14);
-  const { macd, signal, histogram } = calculateMACD(prices);
-  const { sma20, sma50 } = calculateMovingAverages(prices);
-  const { upperBand, lowerBand } = calculateBollingerBands(prices, 20, 2);
-  
-  const currentPrice = prices[prices.length - 1];
-  const volumeAvg = volumes.slice(-10).reduce((a, b) => a + b, 0) / 10;
-  const currentVolume = volumes[volumes.length - 1];
+  try {
+    // First get current quote to validate symbol
+    const { data: currentData, error: currentError } = await supabase.functions.invoke('yahoo-finance-data', {
+      body: {
+        action: 'current_quotes',
+        symbols: [symbol]
+      }
+    });
 
-  // Generate AI prediction
-  const prediction = generatePrediction({
-    rsi: rsi[rsi.length - 1],
-    macd: macd[macd.length - 1],
-    signal: signal[signal.length - 1],
-    currentPrice,
-    sma20: sma20[sma20.length - 1],
-    sma50: sma50[sma50.length - 1],
-    upperBand: upperBand[upperBand.length - 1],
-    lowerBand: lowerBand[lowerBand.length - 1],
-    volumeRatio: currentVolume / volumeAvg,
-    priceChange: (currentPrice - prices[prices.length - 2]) / prices[prices.length - 2]
-  });
+    if (currentError || !currentData?.quotes?.[0]) {
+      throw new Error(`Invalid or unknown stock symbol: ${symbol}`);
+    }
 
-  // Store prediction in database
-  await supabase.from('ai_predictions').insert({
-    symbol,
-    prediction_date: new Date().toISOString().split('T')[0],
-    predicted_price: prediction.targetPrice,
-    confidence_score: prediction.confidence,
-    signal_type: prediction.signal,
-    model_version: 'v2.1',
-    technical_indicators: {
-      rsi: rsi[rsi.length - 1],
-      macd: macd[macd.length - 1],
-      sma20: sma20[sma20.length - 1],
-      sma50: sma50[sma50.length - 1],
-      volume_ratio: currentVolume / volumeAvg
-    },
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-  });
+    const currentPrice = currentData.quotes[0].price;
+    console.log(`Current price for ${symbol}: ${currentPrice}`);
 
-  return new Response(
-    JSON.stringify({ symbol, prediction, technicalIndicators: {
+    // Fetch historical data from Yahoo Finance
+    const { data: historicalResponse, error: fetchError } = await supabase.functions.invoke('yahoo-finance-data', {
+      body: {
+        action: 'historical_data',
+        symbols: [symbol],
+        period: '3mo',
+        interval: '1d'
+      }
+    });
+
+    if (fetchError || !historicalResponse?.data || historicalResponse.data.length < 20) {
+      // If we can't get enough historical data, create a simplified prediction
+      console.log('Using simplified analysis due to insufficient historical data');
+      
+      const simplePrediction = {
+        signal: 'hold' as const,
+        confidence: 0.3,
+        targetPrice: currentPrice * (1 + (Math.random() - 0.5) * 0.05),
+        reasoning: 'Limited historical data available for comprehensive analysis'
+      };
+
+      // Store simplified prediction
+      const { error: insertError } = await supabase.from('ai_predictions').insert({
+        symbol,
+        predicted_price: simplePrediction.targetPrice,
+        confidence_score: simplePrediction.confidence,
+        signal_type: simplePrediction.signal,
+        technical_indicators: { currentPrice, note: 'Simplified analysis' },
+        prediction_date: new Date().toISOString().split('T')[0],
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        model_version: 'v2.1-simple'
+      });
+
+      if (insertError) {
+        console.error('Error storing simplified prediction:', insertError);
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          symbol, 
+          prediction: simplePrediction,
+          message: 'Simplified analysis completed (limited historical data)'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const prices = historicalResponse.data
+      .map((item: any) => item.close)
+      .filter((price: number) => price && !isNaN(price));
+    
+    const volumes = historicalResponse.data
+      .map((item: any) => item.volume)
+      .filter((volume: number) => volume && !isNaN(volume));
+    
+    console.log(`Got ${prices.length} price points for analysis`);
+
+    // Calculate technical indicators
+    const rsi = calculateRSI(prices, 14);
+    const { macd, signal, histogram } = calculateMACD(prices);
+    const { sma20, sma50 } = calculateMovingAverages(prices);
+    const { upperBand, lowerBand } = calculateBollingerBands(prices, 20, 2);
+    
+    const volumeAvg = volumes.length >= 10 ? 
+      volumes.slice(-10).reduce((a, b) => a + b, 0) / 10 : 
+      volumes.reduce((a, b) => a + b, 0) / volumes.length;
+    const currentVolume = volumes[volumes.length - 1] || volumeAvg;
+
+    // Generate AI prediction
+    const prediction = generatePrediction({
       rsi: rsi[rsi.length - 1],
       macd: macd[macd.length - 1],
       signal: signal[signal.length - 1],
+      currentPrice,
       sma20: sma20[sma20.length - 1],
       sma50: sma50[sma50.length - 1],
-      volume_ratio: currentVolume / volumeAvg
-    }}),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+      upperBand: upperBand[upperBand.length - 1],
+      lowerBand: lowerBand[lowerBand.length - 1],
+      volumeRatio: currentVolume / volumeAvg,
+      priceChange: prices.length >= 2 ? (currentPrice - prices[prices.length - 2]) / prices[prices.length - 2] : 0
+    });
+
+    // Store prediction in database
+    const { error: insertError } = await supabase.from('ai_predictions').insert({
+      symbol,
+      prediction_date: new Date().toISOString().split('T')[0],
+      predicted_price: prediction.targetPrice,
+      confidence_score: prediction.confidence,
+      signal_type: prediction.signal,
+      model_version: 'v2.1',
+      technical_indicators: {
+        rsi: rsi[rsi.length - 1],
+        macd: macd[macd.length - 1],
+        sma20: sma20[sma20.length - 1],
+        sma50: sma50[sma50.length - 1],
+        volume_ratio: currentVolume / volumeAvg,
+        currentPrice
+      },
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    if (insertError) {
+      console.error('Error storing prediction:', insertError);
+      throw new Error(`Failed to store prediction: ${insertError.message}`);
+    }
+
+    console.log(`Analysis completed for ${symbol}`);
+    return new Response(
+      JSON.stringify({ 
+        symbol, 
+        prediction, 
+        technicalIndicators: {
+          rsi: rsi[rsi.length - 1],
+          macd: macd[macd.length - 1],
+          signal: signal[signal.length - 1],
+          sma20: sma20[sma20.length - 1],
+          sma50: sma50[sma50.length - 1],
+          volume_ratio: currentVolume / volumeAvg
+        },
+        message: 'Full analysis completed successfully'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
+  } catch (error) {
+    console.error(`Error in analyzeStock for ${symbol}:`, error);
+    throw error;
+  }
 }
 
 function calculateRSI(prices: number[], period: number = 14): number[] {

@@ -1,103 +1,284 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown, Activity, Clock } from "lucide-react";
+
+interface Prediction {
+  id: string;
+  symbol: string;
+  predicted_price: number;
+  confidence_score: number;
+  signal_type: 'buy' | 'sell' | 'hold';
+  created_at: string;
+  expires_at: string;
+  technical_indicators: any;
+}
+
+interface CurrentQuote {
+  symbol: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
 
 export default function Predictions() {
   const [searchSymbol, setSearchSymbol] = useState("");
-  const [predictions] = useState([
-    {
-      symbol: "AAPL",
-      currentPrice: 182.41,
-      predictedPrice: 195.30,
-      confidence: 0.87,
-      direction: "up" as const,
-      lastUpdated: "2 minutes ago"
-    },
-    {
-      symbol: "TSLA", 
-      currentPrice: 248.67,
-      predictedPrice: 234.20,
-      confidence: 0.73,
-      direction: "down" as const,
-      lastUpdated: "5 minutes ago"
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [currentQuotes, setCurrentQuotes] = useState<{[key: string]: CurrentQuote}>({});
+  const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  useEffect(() => {
+    fetchPredictions();
+  }, []);
+
+  const fetchPredictions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      setPredictions(data || []);
+      
+      // Fetch current quotes for all symbols
+      if (data && data.length > 0) {
+        const symbols = [...new Set(data.map(p => p.symbol))];
+        await fetchCurrentQuotes(symbols);
+      }
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
     }
-  ]);
+  };
+
+  const fetchCurrentQuotes = async (symbols: string[]) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('yahoo-finance-data', {
+        body: {
+          action: 'current_quotes',
+          symbols: symbols
+        }
+      });
+
+      if (error) throw error;
+      
+      const quotesMap = (data.quotes || []).reduce((acc: any, quote: any) => {
+        acc[quote.symbol] = quote;
+        return acc;
+      }, {});
+      
+      setCurrentQuotes(quotesMap);
+    } catch (error) {
+      console.error('Error fetching current quotes:', error);
+    }
+  };
+
+  const analyzeStock = async () => {
+    if (!searchSymbol.trim()) return;
+    
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-trading-analysis', {
+        body: {
+          action: 'analyze_stock',
+          symbol: searchSymbol.toUpperCase()
+        }
+      });
+
+      if (error) throw error;
+      
+      // Refresh predictions after analysis
+      await fetchPredictions();
+      setSearchSymbol("");
+    } catch (error) {
+      console.error('Error analyzing stock:', error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const getSignalDirection = (signalType: string) => {
+    return signalType === 'buy' ? 'up' : signalType === 'sell' ? 'down' : 'neutral';
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} minutes ago`;
+    } else if (diffInMinutes < 1440) {
+      const hours = Math.floor(diffInMinutes / 60);
+      return `${hours} hours ago`;
+    } else {
+      const days = Math.floor(diffInMinutes / 1440);
+      return `${days} days ago`;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="space-y-6">
+    <div className="min-h-screen bg-background text-foreground p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Stock Predictions</h1>
-          <p className="text-gray-400 mt-2">
-            Real-time machine learning powered stock price predictions
+          <h1 className="text-4xl font-bold tracking-tight">AI Stock Predictions</h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            Real-time machine learning powered stock price predictions using technical analysis
           </p>
         </div>
 
         {/* Search */}
-        <div className="bg-gray-800 rounded-lg p-4">
-          <div className="flex gap-4">
-            <input
-              type="text"
-              placeholder="Enter stock symbol (e.g., AAPL, TSLA)..."
-              value={searchSymbol}
-              onChange={(e) => setSearchSymbol(e.target.value)}
-              className="flex-1 bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:border-green-500 focus:outline-none"
-            />
-            <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium">
-              Analyze Stock
-            </button>
-          </div>
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex gap-4">
+              <Input
+                type="text"
+                placeholder="Enter stock symbol (e.g., AAPL, TSLA)..."
+                value={searchSymbol}
+                onChange={(e) => setSearchSymbol(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && analyzeStock()}
+                className="flex-1"
+              />
+              <Button 
+                onClick={analyzeStock}
+                disabled={analyzing || !searchSymbol.trim()}
+                className="px-8"
+              >
+                {analyzing ? (
+                  <>
+                    <Activity className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  'Analyze Stock'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Predictions Grid */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {predictions.map((prediction) => {
-            const potentialReturn = ((prediction.predictedPrice - prediction.currentPrice) / prediction.currentPrice * 100);
-            
-            return (
-              <div key={prediction.symbol} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    {prediction.direction === 'up' ? (
-                      <div className="text-green-400">↗</div>
-                    ) : (
-                      <div className="text-red-400">↘</div>
+        {predictions.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-xl font-semibold mb-2">No Predictions Yet</h3>
+              <p className="text-muted-foreground">
+                Enter a stock symbol above to generate AI-powered predictions
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {predictions.map((prediction) => {
+              const currentQuote = currentQuotes[prediction.symbol];
+              const currentPrice = currentQuote?.price || 0;
+              const predictedPrice = prediction.predicted_price;
+              const potentialReturn = currentPrice > 0 ? 
+                ((predictedPrice - currentPrice) / currentPrice * 100) : 0;
+              const direction = getSignalDirection(prediction.signal_type);
+              
+              return (
+                <Card key={prediction.id} className="relative overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {direction === 'up' ? (
+                          <TrendingUp className="w-5 h-5 text-green-500" />
+                        ) : direction === 'down' ? (
+                          <TrendingDown className="w-5 h-5 text-red-500" />
+                        ) : (
+                          <Activity className="w-5 h-5 text-yellow-500" />
+                        )}
+                        <CardTitle className="text-xl">{prediction.symbol}</CardTitle>
+                      </div>
+                      <Badge 
+                        variant={prediction.signal_type === 'buy' ? 'default' : 
+                                prediction.signal_type === 'sell' ? 'destructive' : 'secondary'}
+                      >
+                        {prediction.signal_type.toUpperCase()}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4">
+                    {/* Confidence Score */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Confidence</span>
+                      <span className="font-bold text-lg">
+                        {Math.round(prediction.confidence_score * 100)}%
+                      </span>
+                    </div>
+
+                    {/* Price Prediction */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Current Price</p>
+                        <p className="text-lg font-mono font-bold">
+                          ${currentPrice > 0 ? currentPrice.toFixed(2) : 'Loading...'}
+                        </p>
+                        {currentQuote && (
+                          <p className={`text-xs ${currentQuote.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {currentQuote.change >= 0 ? '+' : ''}{currentQuote.changePercent.toFixed(2)}%
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Predicted Price</p>
+                        <p className="text-lg font-mono font-bold">
+                          ${predictedPrice.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Potential Return */}
+                    {currentPrice > 0 && (
+                      <div className="bg-muted p-3 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Potential Return</span>
+                          <span className={`font-bold ${potentialReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {potentialReturn >= 0 ? '+' : ''}{potentialReturn.toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
                     )}
-                    <span className="text-xl font-bold">{prediction.symbol}</span>
-                  </div>
-                  <div className="bg-green-900 text-green-400 px-3 py-1 rounded text-sm">
-                    {Math.round(prediction.confidence * 100)}% confidence
-                  </div>
-                </div>
-                
-                {/* Price Prediction */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-gray-400 text-sm">Current Price</p>
-                    <p className="text-xl font-mono font-bold">${prediction.currentPrice.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">Predicted Price</p>
-                    <p className="text-xl font-mono font-bold">${prediction.predictedPrice.toFixed(2)}</p>
-                  </div>
-                </div>
 
-                {/* Potential Return */}
-                <div className="bg-gray-700 p-3 rounded mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">Potential Return</span>
-                    <span className={`font-bold ${potentialReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {potentialReturn >= 0 ? '+' : ''}{potentialReturn.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
+                    {/* Technical Indicators Preview */}
+                    {prediction.technical_indicators && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">Technical Signals</p>
+                        <div className="flex flex-wrap gap-1">
+                          {prediction.technical_indicators.rsi && (
+                            <Badge variant="outline" className="text-xs">
+                              RSI: {prediction.technical_indicators.rsi.toFixed(1)}
+                            </Badge>
+                          )}
+                          {prediction.technical_indicators.macd && (
+                            <Badge variant="outline" className="text-xs">
+                              MACD Signal
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                {/* Last Updated */}
-                <p className="text-gray-500 text-xs text-center">
-                  Updated {prediction.lastUpdated}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+                    {/* Timestamp */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span>Updated {formatTimeAgo(prediction.created_at)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

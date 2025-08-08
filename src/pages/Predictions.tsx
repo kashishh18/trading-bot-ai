@@ -144,10 +144,31 @@ export default function Predictions() {
     
     setAnalyzing(true);
     try {
+      let symbolToAnalyze = searchSymbol.toUpperCase();
+      
+      // First try to search for the symbol if it's not in stock symbol format
+      if (searchSymbol.length > 5 || !/^[A-Z]{1,5}$/.test(searchSymbol.toUpperCase())) {
+        try {
+          const { data: searchData } = await supabase.functions.invoke('yahoo-finance-data', {
+            body: {
+              action: 'search_stocks',
+              query: searchSymbol
+            }
+          });
+          
+          if (searchData?.results && searchData.results.length > 0) {
+            symbolToAnalyze = searchData.results[0].symbol;
+            console.log(`Found symbol: ${symbolToAnalyze} for search: ${searchSymbol}`);
+          }
+        } catch (searchError) {
+          console.log('Search failed, trying original symbol:', searchError);
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('ai-trading-analysis', {
         body: {
           action: 'analyze_stock',
-          symbol: searchSymbol.toUpperCase()
+          symbol: symbolToAnalyze
         }
       });
 

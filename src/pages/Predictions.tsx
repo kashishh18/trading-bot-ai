@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Activity, Clock, Brain } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Clock, Brain, Trash2 } from "lucide-react";
 import AIAnalysisModal from "@/components/analysis/AIAnalysisModal";
 import MarketStatusBar from "@/components/market/MarketStatusBar";
 
@@ -240,6 +240,27 @@ export default function Predictions() {
     setSelectedPrediction(null);
   };
 
+  const deletePrediction = async (predictionId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent card click
+    
+    try {
+      const { error } = await supabase
+        .from('ai_predictions')
+        .delete()
+        .eq('id', predictionId);
+
+      if (error) {
+        console.error('Error deleting prediction:', error);
+        return;
+      }
+
+      // Update local state to remove the deleted prediction
+      setPredictions(predictions.filter(p => p.id !== predictionId));
+    } catch (error) {
+      console.error('Error deleting prediction:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -346,12 +367,22 @@ export default function Predictions() {
                         )}
                         <CardTitle className="text-xl">{prediction.symbol}</CardTitle>
                       </div>
-                      <Badge 
-                        variant={prediction.signal_type === 'buy' ? 'default' : 
-                                prediction.signal_type === 'sell' ? 'destructive' : 'secondary'}
-                      >
-                        {prediction.signal_type.toUpperCase()}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={prediction.signal_type === 'buy' ? 'default' : 
+                                  prediction.signal_type === 'sell' ? 'destructive' : 'secondary'}
+                        >
+                          {prediction.signal_type.toUpperCase()}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => deletePrediction(prediction.id, e)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
@@ -50,6 +50,39 @@ export type Database = {
           signal_type?: Database["public"]["Enums"]["signal_type"]
           symbol?: string
           technical_indicators?: Json | null
+        }
+        Relationships: []
+      }
+      custom_indicators: {
+        Row: {
+          created_at: string
+          description: string | null
+          formula_config: Json
+          id: string
+          is_public: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          formula_config: Json
+          id?: string
+          is_public?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          formula_config?: Json
+          id?: string
+          is_public?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
